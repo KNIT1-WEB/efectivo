@@ -1,1 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Efectivo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#000000" />
+
+<style>
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body {
+  margin: 0;
+  padding: 1rem;
+  background: #dcdcdc;
+  color: #222;
+}
+.app-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #f4f4f4;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.6rem;
+  color: #333;
+}
+.subtitle {
+  color: #666;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+.user-info {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #444;
+}
+button {
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.btn-primary { background: #333; color: #fff; }
+.btn-secondary { background: #666; color: #fff; }
+.btn-danger { background: #b11212; color: #fff; }
+
+form {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1.4rem;
+}
+label {
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  display: block;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  background: #fff;
+}
+textarea {
+  resize: vertical;
+  min-height: 40px;
+}
+
+.toolbar {
+  margin-top: 25px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #ccc;
+}
+.toolbar-left, .toolbar-right {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.filtro-label {
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-wrapper {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+th, td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.85rem;
+}
+th {
+  background: #e9e9e9;
+  font-weight: 600;
+}
+tr:nth-child(even) {
+  background: #f6f6f6;
+}
+.text-right {
+  text-align: right;
+}
+.estado-si { color: #0a7d0a; font-weight: bold; }
+.estado-no { color: #b11212; font-weight: bold; }
+
+#loginOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+#loginBox {
+  width: 90%;
+  max-width: 320px;
+  background: #fff;
+  padding: 1.4rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+#loginBox input {
+  width: 100%;
+  margin-top: 0.4rem;
+  margin-bottom: 0.6rem;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+#loginError {
+  display: none;
+  color: #c62828;
+  font-size: 0.8rem;
+  margin-bottom: .5rem;
+}
+#mensajeSinDatos {
+  font-size: 0.9rem;
+  color: #777;
+  margin-top: 1rem;
+  text-align: center;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay">
+  <div id="loginBox">
+    <h2>Acceso a Efectivo</h2>
+    <p>Introduce tu usuario y contraseña.</p>
+    <div id="loginError">Usuario o contraseña incorrectos.</div>
+    <input type="text" id="loginUser" placeholder="Usuario" />
+    <input type="password" id="loginPass" placeholder="Contraseña" />
+    <button class="btn-primary" id="btnLogin" style="width:100%;">Entrar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-container">
+  <h1>Efectivo</h1>
+  <p class="subtitle">Registro de cobros por tienda, con filtros avanzados y multiusuario.</p>
+
+  <div class="user-info">
+    Usuario actual: <strong id="usuarioActual">–</strong>
+    <button class="btn-secondary" id="btnLogout">Cambiar usuario</button>
+  </div>
+
+  <!-- FORMULARIO -->
+  <form id="formCobro">
+    <div>
+      <label>Fecha</label>
+      <input type="date" id="fechaCobro" required />
+    </div>
+
+    <div>
+      <label>Importe (€)</label>
+      <input type="number" id="importeCobro" required min="0" step="0.01" />
+    </div>
+
+    <div>
+      <label>Tienda</label>
+      <textarea id="notaCobro" placeholder="Ej.: Tienda Fábrica 1"></textarea>
+    </div>
+
+    <div>
+      <label>Recibido</label>
+      <select id="recibidoCobro">
+        <option value="No">No</option>
+        <option value="Sí">Sí</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Cobra</label>
+      <select id="cobraCobro"></select>
+    </div>
+
+    <div>
+      <button class="btn-primary" style="width:100%;">Añadir movimiento</button>
+    </div>
+  </form>
+
+  <!-- FILTROS + TABLA + SCRIPT… -->
+  <!-- (CONTINÚA EN EL SIGUIENTE BLOQUE PORQUE ES DEMASIADO LARGO PARA UN SOLO MENSAJE) -->
+<!-- TABLA -->
+  <div class="table-wrapper">
+    <table id="tablaCobros">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Día</th>
+          <th class="text-right">Importe (€)</th>
+          <th>Tienda</th>
+          <th>Recibido</th>
+          <th>Creado por</th>
+          <th>Cobra</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbodyCobros"></tbody>
+    </table>
+  </div>
+
+  <p id="mensajeSinDatos" style="display:none;">Aún no hay movimientos registrados.</p>
+</div>
+
+<script>
+/* ======================================
+   USUARIOS PERMITIDOS
+====================================== */
+const usuarios = [
+  { usuario: "admin", pass: "1234" },
+  { usuario: "tienda1", pass: "1111" },
+  { usuario: "tienda2", pass: "2222" },
+  { usuario: "tienda3", pass: "3333" }
+];
+
+let cobros = JSON.parse(localStorage.getItem("cobros_efectivo") || "[]");
+let usuarioActual = null;
+
+/* ======================================
+   LOGIN
+====================================== */
+const loginOverlay = document.getElementById("loginOverlay");
+const btnLogin = document.getElementById("btnLogin");
+
+btnLogin.addEventListener("click", () => {
+  const user = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value.trim();
+
+  const encontrado = usuarios.find(u => u.usuario === user && u.pass === pass);
+
+  if (!encontrado) {
+    document.getElementById("loginError").style.display = "block";
+    return;
+  }
+
+  usuarioActual = user;
+  document.getElementById("usuarioActual").textContent = usuarioActual;
+
+  loginOverlay.style.display = "none";
+  actualizarSelectsUsuarios();
+  renderTabla();
+});
+
+/* LOGOUT */
+document.getElementById("btnLogout").addEventListener("click", () => {
+  usuarioActual = null;
+  loginOverlay.style.display = "flex";
+});
+
+/* ======================================
+   AÑADIR COBRO
+====================================== */
+document.getElementById("formCobro").addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const fecha = document.getElementById("fechaCobro").value;
+  const importe = parseFloat(document.getElementById("importeCobro").value);
+  const nota = document.getElementById("notaCobro").value.trim();
+  const recibido = document.getElementById("recibidoCobro").value;
+  const cobra = document.getElementById("cobraCobro").value;
+
+  if (!fecha || isNaN(importe)) {
+    alert("Faltan datos obligatorios.");
+    return;
+  }
+
+  cobros.push({
+    fecha,
+    importe,
+    nota,
+    recibido,
+    creadoPor: usuarioActual,
+    cobra
+  });
+
+  guardarDatos();
+  renderTabla();
+  document.getElementById("formCobro").reset();
+});
+
+/* ======================================
+   SELECT DE USUARIOS
+====================================== */
+function actualizarSelectsUsuarios() {
+  const cobraSelect = document.getElementById("cobraCobro");
+  const filtroCreador = document.getElementById("filtroCreador");
+  const filtroCobrador = document.getElementById("filtroCobrador");
+
+  cobraSelect.innerHTML = "";
+  filtroCreador.innerHTML = "<option value='todos'>Todos</option>";
+  filtroCobrador.innerHTML = "<option value='todos'>Todos</option>";
+
+  usuarios.forEach(u => {
+    const opt1 = document.createElement("option");
+    opt1.textContent = u.usuario;
+    opt1.value = u.usuario;
+    cobraSelect.appendChild(opt1);
+
+    const opt2 = document.createElement("option");
+    opt2.textContent = u.usuario;
+    opt2.value = u.usuario;
+    filtroCreador.appendChild(opt2);
+
+    const opt3 = document.createElement("option");
+    opt3.textContent = u.usuario;
+    opt3.value = u.usuario;
+    filtroCobrador.appendChild(opt3);
+  });
+}
+
+/* ======================================
+   TABLA
+====================================== */
+const tbody = document.getElementById("tbodyCobros");
+
+function renderTabla() {
+  tbody.innerHTML = "";
+
+  let lista = filtrarDatos(cobros);
+
+  if (lista.length === 0) {
+    document.getElementById("mensajeSinDatos").style.display = "block";
+    actualizarResumen(lista);
+    return;
+  }
+
+  document.getElementById("mensajeSinDatos").style.display = "none";
+
+  lista.forEach((c, index) => {
+    const tr = document.createElement("tr");
+
+    const dia = new Date(c.fecha).toLocaleDateString("es-es", { weekday: "long" });
+
+    tr.innerHTML = `
+      <td>${c.fecha}</td>
+      <td>${dia}</td>
+      <td class="text-right">${c.importe.toFixed(2)}</td>
+      <td>${c.nota}</td>
+      <td class="${c.recibido === "Sí" ? "estado-si" : "estado-no"}">${c.recibido}</td>
+      <td>${c.creadoPor}</td>
+      <td>${c.cobra}</td>
+      <td><button class="btn-danger" onclick="borrar(${index})">X</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  actualizarResumen(lista);
+}
+
+/* BORRAR REGISTRO */
+function borrar(index) {
+  if (!confirm("¿Seguro que quieres borrar este movimiento?")) return;
+  cobros.splice(index, 1);
+  guardarDatos();
+  renderTabla();
+}
+
+/* BORRAR TODO */
+document.getElementById("btnBorrarTodo").addEventListener("click", () => {
+  if (!confirm("¿Seguro que quieres borrar TODOS los datos?")) return;
+  cobros = [];
+  guardarDatos();
+  renderTabla();
+});
+
+/* GUARDAR */
+function guardarDatos() {
+  localStorage.setItem("cobros_efectivo", JSON.stringify(cobros));
+}
+
+/* FILTROS */
+document.querySelectorAll("#filtroNota, #filtroFechaDesde, #filtroFechaHasta, #filtroRecibido, #filtroCreador, #filtroCobrador")
+  .forEach(elem => elem.addEventListener("input", renderTabla));
+
+document.getElementById("btnLimpiarFiltros").addEventListener("click", () => {
+  document.getElementById("filtroNota").value = "";
+  document.getElementById("filtroFechaDesde").value = "";
+  document.getElementById("filtroFechaHasta").value = "";
+  document.getElementById("filtroRecibido").value = "todos";
+  document.getElementById("filtroCreador").value = "todos";
+  document.getElementById("filtroCobrador").value = "todos";
+  renderTabla();
+});
+
+function filtrarDatos(lista) {
+  const fNota = document.getElementById("filtroNota").value.toLowerCase();
+  const fDesde = document.getElementById("filtroFechaDesde").value;
+  const fHasta = document.getElementById("filtroFechaHasta").value;
+  const fRecibido = document.getElementById("filtroRecibido").value;
+  const fCreador = document.getElementById("filtroCreador").value;
+  const fCobrador = document.getElementById("filtroCobrador").value;
+
+  return lista.filter(c => {
+    if (fNota && !c.nota.toLowerCase().includes(fNota)) return false;
+    if (fDesde && c.fecha < fDesde) return false;
+    if (fHasta && c.fecha > fHasta) return false;
+    if (fRecibido === "recibidos" && c.recibido !== "Sí") return false;
+    if (fRecibido === "pendientes" && c.recibido !== "No") return false;
+    if (fCreador !== "todos" && c.creadoPor !== fCreador) return false;
+    if (fCobrador !== "todos" && c.cobra !== fCobrador) return false;
+    return true;
+  });
+}
+
+function actualizarResumen(lista) {
+  const total = lista.reduce((s, c) => s + c.importe, 0);
+  document.getElementById("resumenCobros").textContent =
+    `${lista.length} movimientos · Total: ${total.toFixed(2)} €`;
+}
+</script>
+
+</body>
+</html>
 
